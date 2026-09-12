@@ -1,0 +1,37 @@
+{
+  "_comment": "Four sample tenants to seed your database. Key values are examples - generate your own securely. Budgets are monthly, in USD. The budget-demo key has a deliberately tiny budget (less than one request's cost at the mock prices) so the budget_exceeded rejection is easy to demo live; its cache is disabled so a $0 cache hit cannot mask the rejection.",
+  "tenants": [
+    {
+      "team": "search",
+      "virtual_key": "prism-sk-search-1a2b3c",
+      "monthly_budget_usd": 50,
+      "rate_limit": { "requests_per_minute": 60, "tokens_per_minute": 100000 },
+      "model_allowlist": ["fast"],
+      "semantic_cache": { "enabled": true, "similarity_threshold": 0.92 }
+    },
+    {
+      "team": "research",
+      "virtual_key": "prism-sk-research-4d5e6f",
+      "monthly_budget_usd": 500,
+      "rate_limit": { "requests_per_minute": 300, "tokens_per_minute": 1000000 },
+      "model_allowlist": ["fast", "smart", "auto"],
+      "semantic_cache": { "enabled": false }
+    },
+    {
+      "team": "free-tier",
+      "virtual_key": "prism-sk-free-7g8h9i",
+      "monthly_budget_usd": 5,
+      "rate_limit": { "requests_per_minute": 10, "tokens_per_minute": 20000 },
+      "model_allowlist": ["fast"],
+      "semantic_cache": { "enabled": true, "similarity_threshold": 0.85 }
+    },
+    {
+      "team": "budget-demo",
+      "virtual_key": "prism-sk-budget-demo-0j1k2l",
+      "monthly_budget_usd": 0.00001,
+      "rate_limit": { "requests_per_minute": 60, "tokens_per_minute": 20000 },
+      "model_allowlist": ["fast"],
+      "semantic_cache": { "enabled": false }
+    }
+  ]
+}

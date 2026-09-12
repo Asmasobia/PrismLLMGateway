@@ -1,0 +1,22 @@
+{
+  "_comment": "Sample gateway configuration: a provider registry, model aliases, and fallback chains. Adapt the shape to your design - this shows one reasonable structure, not the required one.",
+  "providers": [
+    { "name": "alpha", "base_url": "http://localhost:9001/v1", "api_key": "mock-key-alpha" },
+    { "name": "beta",  "base_url": "http://localhost:9002/v1", "api_key": "mock-key-beta" }
+  ],
+  "model_aliases": {
+    "fast":  { "primary": "alpha-small", "fallbacks": ["beta-small"] },
+    "smart": { "primary": "alpha-large", "fallbacks": ["beta-large"] },
+    "auto":  {
+      "_comment": "smart router: the gateway classifies each prompt's difficulty and routes to a tier; graded against data/routing_eval.jsonl",
+      "route_by_difficulty": { "simple": "fast", "complex": "smart" }
+    }
+  },
+  "retry": { "max_attempts": 3, "initial_backoff_ms": 200, "backoff_multiplier": 2 },
+  "degradation": {
+    "_comment": "Suggested thresholds for treating a provider as degraded and skipping to fallback.",
+    "error_rate_threshold": 0.5,
+    "window_seconds": 60,
+    "p95_latency_ms": 5000
+  }
+}
