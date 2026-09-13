@@ -60,7 +60,14 @@ upstreams — free, offline, and deterministic for failover.
 
 ## Working agreement
 
-- Feature work goes on a branch and lands via PR, never straight to `main`.
+- **All work happens on `feedback`.** That is the working branch and the branch under evaluation;
+  commit each slice directly onto it, one commit per logical unit. Do not open per-slice branches.
+- **Never merge to `main` before the evaluation is complete.** `main` stays at the scaffold import
+  (`84cf8cb`) until then, so the reviewer sees the whole build as a single reviewable diff against
+  the untouched starting point. The `feedback` → `main` merge is the last action of the project.
+- Because there is no per-slice PR gate, the review checkpoint is manual: **stop after each slice
+  and let Asma read it before starting the next.** If reading lags, slow down rather than skipping
+  the review — a repo that can't be defended on camera defeats the point.
 - This repo is personal: commits must use `Asmasobia <asmarosealia@gmail.com>`, set in
   `.git/config`. No work identity, work email, or work data belongs anywhere in this repository.
 - Keep the README's **Known limitations** section current — add a line every time something is
