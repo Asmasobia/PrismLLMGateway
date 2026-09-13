@@ -4,8 +4,15 @@ A multi-tenant LLM gateway: one OpenAI-compatible API in front of multiple provi
 difficulty-based routing, retries and failover, per-key rate limits and cost budgets,
 token-by-token streaming, usage metering, and a semantic response cache.
 
-`data/`, `scripts/` and `docs/` are the provided project scaffold, imported unmodified in the
-first commit (`84cf8cb`). Everything else is mine.
+The provided project scaffold is **exactly the files in commit `84cf8cb`** — all of `data/`, plus
+four scripts and five docs. Everything else in the tree is mine, including later additions to
+`scripts/` and `docs/`. Do not judge authorship by directory; judge it by that commit.
+
+Provided, and not to be edited: `data/*`, `scripts/{validate_pack,mock_provider,smoke_test,load_test}.py`,
+`docs/{API_CONTRACT,DATA_MODEL,EVALUATION_GUIDE,IMPLEMENTATION_GUIDE,PROVIDED_PACK,PRISM_PROBLEM_STATEMENT}.md`.
+
+Mine, added since: `docs/DESIGN_NOTES.md`, `scripts/pg.sh`, and everything at the repository root
+apart from the two relocated docs.
 
 ## Provenance
 
@@ -26,9 +33,16 @@ Its shell commands are meant to be run from the root.
 - **Python 3.12**, via a venv at `.venv/`. Create it with `py -3.12 -m venv .venv`.
 - Bare `python` on this machine resolves to **3.7.9** (EOL) and `python3` does not exist in Git
   Bash. Always activate the venv, or use `py -3.12` explicitly. Never assume `python3` works.
-- **Postgres, not SQLite.** SQLite serialises writers, which would hide the read-then-write rate
-  limiter race that `scripts/load_test.py` exists to catch — "no over-admission" would pass for
-  the wrong reason.
+- **Postgres, not SQLite.** SQLite serialises writers, so concurrent `UPDATE ... SET spent =
+  spent + ?` would appear correct without ever being atomic — budget accounting would reconcile
+  for the wrong reason, and `docs/DATA_MODEL.md:86-91` requires the increment itself to be atomic.
+  Note this is about **budget accounting, not the rate limiter**: `docs/DATA_MODEL.md:118` permits
+  rate-limit state to live in memory provided it is race-safe, so the over-admission the load test
+  hunts for is an in-process concurrency bug, not a database one.
+- Postgres listens on port **5433**. Two supported paths: `docker compose up -d`, or
+  `scripts/pg.sh`, which drives EDB's **binaries zip** unpacked under
+  `%LOCALAPPDATA%\prism-postgres` and needs no installer, no Windows service and no elevation.
+  See the README for start/stop.
 
 ## Verification
 
