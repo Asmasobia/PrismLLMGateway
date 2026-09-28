@@ -100,9 +100,15 @@ reset() {
         -c "delete from cache_entries;" \
         -c "delete from request_log where tenant_id = (select id from tenants where team='budget-demo');" \
         -c "update budget_periods set spent_usd = 0, request_count = 0 where tenant_id = (select id from tenants where team='budget-demo');"
-    curl -s -X POST 127.0.0.1:9001/admin/config -d '{"mode":"ok"}' >/dev/null
-    curl -s -X POST 127.0.0.1:9002/admin/config -d '{"mode":"ok"}' >/dev/null
-    echo "reset: cache cleared, budget-demo zeroed, both providers healthy"
+    # All three fields, not just mode. The mock merges a partial POST rather than
+    # replacing its config, so {"mode":"ok"} leaves a fail_rate or latency_ms from an
+    # earlier drill in place — and then every request is 3 s late or randomly failing
+    # while this function cheerfully reports both providers healthy.
+    local healthy='{"mode":"ok","fail_rate":0.0,"latency_ms":0}'
+    curl -s -X POST 127.0.0.1:9001/admin/config -d "$healthy" >/dev/null
+    curl -s -X POST 127.0.0.1:9002/admin/config -d "$healthy" >/dev/null
+    echo "reset: cache cleared, budget-demo zeroed, both providers fully healthy"
+    echo "note:  the rate-limit window is in-memory — restart the gateway too if you ran burst"
 }
 
 # -- demo prompts ------------------------------------------------------------
