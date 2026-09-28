@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism — Approach One-Pager</title>
+<style>
+  @page { size: A4; margin: 10mm 11mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Charter", "Georgia", "Times New Roman", serif;
+    font-size: 8.5pt;
+    line-height: 1.29;
+    color: #16181d;
+    margin: 0;
+  }
+  header { border-bottom: 1.4pt solid #16181d; padding-bottom: 2.5pt; margin-bottom: 5pt; }
+  h1 { font-size: 13.5pt; margin: 0 0 1pt; letter-spacing: -0.2pt; }
+  .sub {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 7.6pt; color: #5b616e; letter-spacing: 0.1pt;
+  }
+  h2 {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 7.8pt; text-transform: uppercase; letter-spacing: 0.6pt;
+    color: #0d3b66; margin: 5.5pt 0 2pt;
+    border-bottom: 0.5pt solid #c9cfdb; padding-bottom: 1.5pt;
+  }
+  p { margin: 0 0 3pt; text-align: justify; }
+  ol, ul { margin: 0 0 3pt; padding-left: 12pt; }
+  li { margin-bottom: 1.6pt; }
+  b, strong { font-weight: 700; }
+  .path {
+    font-family: "Consolas", "SFMono-Regular", monospace;
+    font-size: 7.2pt; background: #f2f4f8; border-left: 2pt solid #0d3b66;
+    padding: 3pt 5pt; margin: 0 0 3.5pt; letter-spacing: -0.1pt;
+  }
+  .cols { column-count: 2; column-gap: 9pt; column-rule: 0.5pt solid #dfe3ec; }
+  .cols ul { padding-left: 10pt; }
+  .cols li { margin-bottom: 2.4pt; break-inside: avoid; }
+  .why { color: #3d434f; }
+  footer {
+    margin-top: 5pt; border-top: 0.5pt solid #c9cfdb; padding-top: 3pt;
+    font-size: 7.4pt; color: #5b616e; font-style: italic; text-align: justify;
+  }
+  .k { font-family: "Consolas", monospace; font-size: 7.6pt; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Prism — LLM Gateway and Semantic Cache</h1>
+  <div class="sub">Approach one-pager &nbsp;·&nbsp; Asma Sobia &nbsp;·&nbsp; 17 September 2026</div>
+</header>
+
+<p><b>The two decisions.</b> Prism puts one OpenAI-compatible API in front of multiple providers and
+makes two decisions on every request — <i>how hard is this prompt</i> (which model tier deserves it)
+and <i>have we answered this before</i> (semantic cache) — while enforcing per-tenant virtual keys,
+rate limits and cost budgets, metering usage, and streaming without buffering.</p>
+
+<h2>Request path</h2>
+<div class="path">key → active → model exists → allowlist → rate limit → budget → route (auto) → cache lookup → dispatch (retry ▸ failover) → meter → log</div>
+<p>Checks run cheapest-and-most-certain first, so a refused request costs no embedding and no upstream
+call. Two orderings are deliberate. <b>Unknown model is checked before the allowlist</b> — a 403 for a
+model that does not exist would confirm its existence to any caller holding any valid key.
+<b>Budget exhaustion returns 402, not 429</b> — the provided load test classifies every 429 as
+"rate limited", so 429 here would corrupt the one measurement that test exists to produce, and 402
+says something true that 429 does not: retrying later cannot help.</p>
+
+<h2>Build path — five slices, in dependency order</h2>
+<ol>
+  <li><b>Spine.</b> Config loading and validation, schema, key authentication, the error contract.
+  Contract before mechanism: the <span class="k">x-prism-*</span> headers and error shapes are fixed
+  first, so nothing downstream invents its own.</li>
+  <li><b>Data plane.</b> Provider adapter behind an interface, model and alias resolution, rate
+  limiter, cost metering, atomic budget charge, request log — including rejections.</li>
+  <li><b>Resilience and streaming.</b> Per-attempt timeouts, retry with full-jitter backoff, failover
+  down the resolved chain; SSE relayed chunk-by-chunk as the raw JSON the provider sent.</li>
+  <li><b>Semantic intelligence.</b> One embedding model used twice — the cache (exact hash → cosine →
+  guards) and the <span class="k">auto</span> router (kNN over hand-authored exemplars) — plus an
+  offline routing eval.</li>
+  <li><b>Console and verification.</b> Ops console, smoke test, load test, routing eval, live provider
+  failure drills, verification report.</li>
+</ol>
+
+<h2>Design choices and the reasoning behind them</h2>
+<div class="cols">
+<ul>
+  <li><b>Postgres, not SQLite.</b> Budget accounting needs
+  <span class="k">SET spent = spent + x</span> to be genuinely atomic. SQLite serialises writers, so a
+  read-then-write implementation would reconcile perfectly <i>for the wrong reason</i> — the store is
+  chosen so the concurrency claim is actually put under test.</li>
+
+  <li><b>Four tables for seven entities.</b> Only mutable state that must survive a restart goes in
+  the database: tenants, request log, cache entries, budget counters. Providers, aliases and prices
+  have no per-request mutable state, so they live in config files validated once at startup — no
+  migration to change a price, no join to read one.</li>
+
+  <li><b>Usage is a derived query, not a stored aggregate.</b> A usage row written beside every log
+  row is a dual write, and dual writes drift: the moment one succeeds and the other fails, the usage
+  API and the log disagree with no way to say which is right. One source of truth, aggregated on read.</li>
+
+  <li><b>Money is <span class="k">Decimal</span> / <span class="k">NUMERIC(18,10)</span>, never
+  float.</b> Binary floats do not sum associatively, so the same set of costs totals differently
+  depending on the order requests happened to finish. The scale is set by the smallest seeded budget —
+  anything coarser rounds it to zero.</li>
+
+  <li><b>Virtual keys are stored as SHA-256 plus a non-secret prefix.</b> Lookup hashes the presented
+  key and finds the row by index, so a database dump yields no working credential. SHA-256 rather than
+  bcrypt because a slow hash defends <i>low-entropy, human-chosen</i> secrets; a virtual key is
+  high-entropy and machine-generated, so a slow hash would buy nothing and cost ~100 ms per request.</li>
+
+  <li><b>Cache scope is part of the key, not a filter on it</b> — (tenant, tier, conversation prefix,
+  sampling parameters). A cross-tenant hit is <i>not expressible</i>, so isolation lives in the entry's
+  identity rather than in a <span class="k">WHERE</span> clause someone can forget.</li>
+
+  <li><b>Cache lookup is a pipeline of rejections.</b> Exact hash first, so a repeated prompt costs one
+  index lookup and no embedding; then cosine against a per-tenant threshold; then two guards —
+  differing numbers, IDs or amounts, and differing negation. Every stage can only reject, so no guard
+  can <i>cause</i> a hit. Time-sensitive prompts are answered and never stored.</li>
+
+  <li><b>The embedding model is a vendored artifact.</b> It must be on disk before startup and is never
+  fetched on the request path — a gateway that reaches a model host mid-request has an unadvertised
+  dependency and an unbounded tail latency.</li>
+
+  <li><b>One embedding model serves both features.</b> The cache and the <span class="k">auto</span>
+  router need the same capability, so they share one warmed instance. Routing is graded offline against
+  a held-out set, with <span class="k">expected_tier</span> reaching the scorer and never the
+  classifier.</li>
+
+  <li><b>Rate-limit state is in memory and race-safe in-process.</b> The data model permits this
+  explicitly; what it requires is a counter that cannot over-admit under contention, which a test pins
+  directly. <span class="why">Single-process by design — shared state (Redis) is the multi-process
+  answer and is out of scope.</span></li>
+
+  <li><b>Admission asks whether <i>any</i> budget remains, not whether there is enough.</b> A request's
+  cost is unknown until the provider reports usage, and for a stream until it ends, so there is no
+  figure to reserve against. The resulting overshoot is bounded by one window's requests, and the
+  charge itself is atomic.</li>
+
+  <li><b>Failover happens before the first token, never after.</b> What is worth retrying is decided
+  from the response, not by the retry loop: transient failures retry and fail over, a 400 does neither,
+  an auth or route error fails over without retrying. Once bytes have reached the client the partial
+  answer cannot be un-sent, so a dying stream is terminated with an error event and
+  <span class="k">[DONE]</span> rather than spliced onto another provider.</li>
+</ul>
+</div>
+
+<h2>How it gets proven</h2>
+<p>Smoke test green on the header, streaming and cache contract. Load test showing <b>zero
+over-admission</b> and accounting that reconciles exactly against the usage API. Routing eval
+<b>above the 80% bar and clearly beating a length-only baseline</b>, with a logged reason per case.
+Four live failure drills — kill, slow, flaky, restore — with <span class="k">x-prism-fallback</span>
+set and no client left hanging. A coarse added-latency measurement, method documented. Automated
+tests cover the four flows named critical: cost math, limiter, cache decision, allowlist.</p>
+
+<footer>
+Basis: a prototype spike covering slices 1–5 already exists on the working branch (357 automated
+tests; routing eval 19/20 = 95% semantic against 8/20 = 40% for a length-only baseline), so the
+choices above are measured rather than assumed. Verification, the ops console and the report are the
+remaining slice.
+</footer>
+
+</body>
+</html>
