@@ -20,11 +20,26 @@ fi
 # shellcheck disable=SC1091
 source .venv/Scripts/activate
 
-# PRISM_ADMIN_TOKEN, for $A and the console.
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+# PRISM_ADMIN_TOKEN, for $A and the console. Read exactly one value out of .env rather
+# than sourcing the file.
+#
+# `.env` is written for python-dotenv, which takes backslashes literally. Bash does not:
+# `source .env` reads PRISM_MODEL_CACHE=C:\Users\...\prism-models as escape sequences and
+# exports C:Users...prism-models instead. That corrupted path is worse than an unset one,
+# because pydantic-settings and tests/conftest.py both prefer the process environment over
+# .env — so any gateway or pytest run started from this shell would inherit it, fail to
+# load the embedding model, and lose semantic caching and `auto` routing while still
+# reporting success. pytest would show a green run with 10 silent skips.
+_env_value() {
+    grep -E "^$1=" .env | head -1 | cut -d= -f2- | tr -d '\r' | sed 's/^["'"'"']//; s/["'"'"']$//'
+}
+
+PRISM_ADMIN_TOKEN="$(_env_value PRISM_ADMIN_TOKEN)"
+unset -f _env_value
+
+if [ -z "$PRISM_ADMIN_TOKEN" ]; then
+    echo "demo_env: PRISM_ADMIN_TOKEN not found in .env — \$A and the console will not work." >&2
+fi
 
 # -- credentials -------------------------------------------------------------
 S="Authorization: Bearer prism-sk-search-1a2b3c"        # cache on (0.92), fast only

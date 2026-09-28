@@ -280,6 +280,14 @@ A skip is a loud one: the `model` lane resolves `PRISM_MODEL_CACHE` from the env
 `.env`, because an earlier version read only the environment and silently skipped the whole lane on a
 machine where the model was present — a green run that proved nothing.
 
+**Do not `source .env` from a shell.** It is written for python-dotenv, which takes backslashes
+literally; bash reads them as escape sequences, so `PRISM_MODEL_CACHE=C:\Users\...\prism-models`
+becomes `C:Users...prism-models`. Both this suite and `prism.settings` give the process environment
+precedence over `.env`, so a shell that has sourced it poisons every gateway and pytest run started
+from it — pytest reports a cheerful `381 passed, 10 skipped`, and a gateway started there loses the
+embedding model, and with it semantic caching and `auto` routing, without erroring. `python -m pytest`
+should report **391 passed, 0 skipped** with Postgres up; any skips at all mean a lane did not run.
+
 ## API overview
 
 Data plane is `POST /v1/chat/completions`, OpenAI-compatible, streaming and non-streaming. Every
