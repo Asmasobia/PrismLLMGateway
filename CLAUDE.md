@@ -70,9 +70,10 @@ upstreams — free, offline, and deterministic for failover.
   and let Asma read it before starting the next.** If reading lags, slow down rather than skipping
   the review — a repo that can't be defended on camera defeats the point.
 - This repo is personal and must stay that way. Commits use `Asmasobia <asmarosealia@gmail.com>`,
-  set in `.git/config`; the machine-wide git identity is a work account, so check `git log` before
-  pushing. **No employer name, work email address, internal hostname, work system, or work data
-  belongs anywhere in this repository — not in code, comments, docs, commit messages, or config.**
+  set in `.git/config`; the machine-wide git identity is a different account, so check `git log`
+  before pushing. **No employer name, work email address, internal hostname, work system, or work
+  data belongs anywhere in this repository — not in code, comments, docs, commit messages, or
+  config.**
   Where a rule needs to refer to that boundary, refer to it as "work", never by name.
 - Keep the README's **Known limitations** section current — add a line every time something is
   deferred. It is a graded deliverable and cannot be reconstructed honestly at the end.
