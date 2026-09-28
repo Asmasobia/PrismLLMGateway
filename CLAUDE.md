@@ -11,8 +11,9 @@ four scripts and five docs. Everything else in the tree is mine, including later
 Provided, and not to be edited: `data/*`, `scripts/{validate_pack,mock_provider,smoke_test,load_test}.py`,
 `docs/{API_CONTRACT,DATA_MODEL,EVALUATION_GUIDE,IMPLEMENTATION_GUIDE,PROVIDED_PACK,PRISM_PROBLEM_STATEMENT}.md`.
 
-Mine, added since: `docs/DESIGN_NOTES.md`, `scripts/pg.sh`, and everything at the repository root
-apart from the two relocated docs.
+Mine, added since: `prism/`, `tests/`, `docs/DESIGN_NOTES.md`, `docs/DAY*_DESIGN_LOG.md`,
+`scripts/pg.sh`, `scripts/init_db.py`, and everything at the repository root apart from the two
+relocated docs.
 
 ## Provenance
 
@@ -68,7 +69,10 @@ upstreams — free, offline, and deterministic for failover.
 - Because there is no per-slice PR gate, the review checkpoint is manual: **stop after each slice
   and let Asma read it before starting the next.** If reading lags, slow down rather than skipping
   the review — a repo that can't be defended on camera defeats the point.
-- This repo is personal: commits must use `Asmasobia <asmarosealia@gmail.com>`, set in
-  `.git/config`. No work identity, work email, or work data belongs anywhere in this repository.
+- This repo is personal and must stay that way. Commits use `Asmasobia <asmarosealia@gmail.com>`,
+  set in `.git/config`; the machine-wide git identity is a work account, so check `git log` before
+  pushing. **No employer name, work email address, internal hostname, work system, or work data
+  belongs anywhere in this repository — not in code, comments, docs, commit messages, or config.**
+  Where a rule needs to refer to that boundary, refer to it as "work", never by name.
 - Keep the README's **Known limitations** section current — add a line every time something is
   deferred. It is a graded deliverable and cannot be reconstructed honestly at the end.
