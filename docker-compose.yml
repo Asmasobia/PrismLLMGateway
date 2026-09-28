@@ -1,0 +1,31 @@
+# Postgres for reviewers who have Docker. This is the recommended way to
+# reproduce the environment.
+#
+# scripts/pg.sh is the equivalent path where Docker is unavailable: it drives
+# EnterpriseDB's binaries zip, which needs no installer and no elevation.
+#
+#   docker compose up -d
+#
+# Port 5433 is deliberate: it matches PRISM_DATABASE_URL in .env.example, and it
+# avoids colliding with a Postgres you may already have on 5432.
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: prism-postgres
+    environment:
+      POSTGRES_USER: prism
+      POSTGRES_PASSWORD: prism
+      POSTGRES_DB: prism
+    ports:
+      - "5433:5432"
+    volumes:
+      - prism-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prism -d prism"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  prism-pgdata:

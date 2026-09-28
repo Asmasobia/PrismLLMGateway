@@ -1,0 +1,36 @@
+# Prism runtime and development dependencies. Python 3.12.
+# Pinned deliberately: the semantic cache's behaviour depends on the embedding
+# stack producing identical vectors run to run (see docs/DESIGN_NOTES.md).
+
+# --- web layer ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+
+# --- upstream provider calls (streaming) ---
+httpx==0.28.1
+
+# --- persistence: Postgres, async ---
+SQLAlchemy==2.0.52
+asyncpg==0.31.0
+# Not used yet. Schema is created directly for now; migrations are a later slice.
+alembic==1.20.0
+
+# --- embeddings: local ONNX, no network at request time ---
+# The model itself is a vendored artifact, NOT installed by pip.
+# See docs/DESIGN_NOTES.md for the cache path and pinned revision.
+fastembed==0.8.0
+
+# --- tests ---
+pytest==9.1.1
+pytest-asyncio==1.4.0
+
+# --- lint ---
+# Pinned for the same reason as everything else here, and one more: ruff's default
+# rule selection changes between releases, so an unpinned ruff makes `ruff check`
+# report a different set of findings on a different machine. `[tool.ruff.lint]` in
+# pyproject.toml names the rules explicitly; this pins the version that interprets
+# them. `[tool.ruff]` was configured for two slices before ruff was ever installed.
+ruff==0.16.7
