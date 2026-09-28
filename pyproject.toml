@@ -1,0 +1,67 @@
+[tool.pytest.ini_options]
+# The repository root is on sys.path so `import prism` works without an editable
+# install. Keeps the setup instructions to one pip command.
+pythonpath = ["."]
+testpaths = ["tests"]
+# Every test in this suite is async; opting in per test with a decorator is pure
+# noise, and a forgotten decorator makes an async test silently pass by never
+# being awaited.
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --strict-markers"
+markers = [
+    "postgres: needs a live Postgres (scripts/pg.sh start). Skipped when unreachable.",
+    # A second lane for the same reason as the first: these tests need the vendored
+    # ONNX model in PRISM_MODEL_CACHE, take seconds rather than milliseconds, and are
+    # the only ones that grade routing *quality*. `-m "not model"` keeps the fast
+    # feedback loop fast; CI without the artifact still runs everything else.
+    "model: needs the vendored embedding model (PRISM_MODEL_CACHE). Skipped when absent.",
+]
+
+[tool.ruff]
+# 100, not the 92 originally declared here. The 92 was aspirational and never
+# enforced — ruff was configured but never installed or pinned, and by the time it
+# was, 51 lines across 20 files exceeded it. Reflowing all of them would have been a
+# whitespace diff touching nearly every file, for no behavioural change, submitted
+# alongside the slice it would have made unreviewable. 100 is where this codebase
+# actually sits; the 7 lines that exceeded even that were wrapped rather than waived.
+line-length = 100
+target-version = "py312"
+# The provided scaffold (commit 84cf8cb) is not mine to edit — see CLAUDE.md — so
+# linting it would produce a permanent backlog of findings that must not be fixed.
+# Excluded rather than noqa'd, because a noqa is itself an edit to those files.
+extend-exclude = [
+    "scripts/validate_pack.py",
+    "scripts/mock_provider.py",
+    "scripts/smoke_test.py",
+    "scripts/load_test.py",
+]
+
+[tool.ruff.lint]
+# Pinned explicitly, because ruff's *default* selection changes between releases.
+# Leaving it unset made lint results a function of whichever ruff happened to be
+# installed: the `# noqa: E402` comments guarding the `sys.path` inserts in
+# `scripts/` were reported as unused directives, since E402 was not enabled on one
+# version and was on another. A rule set that drifts is a rule set nobody can
+# trust, and silently-unused noqa comments are the visible symptom.
+select = [
+    "E",    # pycodestyle errors, including E402 — the rule the script noqas cite
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes: unused imports and names
+    "I",    # import ordering
+    "UP",   # pyupgrade: this is a 3.12-only codebase, so keep it written that way
+    "B",    # bugbear: mutable defaults, and the loop-variable-capture bugs
+    "SIM",  # simplification
+    "BLE",  # blind excepts — deliberate in three places, each with a noqa and a why
+    "RUF",  # ruff-specific, including RUF100 so a stale noqa fails lint
+]
+ignore = [
+    # Ambiguous-unicode, in docstrings and comments only. The three sites this flags
+    # are correct typography — an en dash in the numeric range "0.55–0.95", and `×`
+    # for multiplication in two cost formulas. The rule is aimed at homoglyphs in
+    # identifiers and compared strings, where a lookalike character is a genuine bug;
+    # in prose it would mean writing "0.55-0.95" and "x" to satisfy a linter.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]

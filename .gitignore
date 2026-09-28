@@ -8,3 +8,15 @@ __pycache__/
 .venv/
 .env
 .env.local
+
+# Deployment config: holds provider API keys. Copy from data/gateway_config.sample.json.
+gateway_config.json
+
+# Personal recording notes: spoken narration, timing budget, rehearsal reminders. The
+# reproducible half — setup, commands, expected header values — is in the README instead.
+docs/DEMO_SCRIPT.md
+
+# Local agent settings: machine-specific absolute paths, no value to anyone else. Also
+# covered by a global ignore rule, but that lives outside the repository and so does not
+# travel with a clone — this line is the one that does.
+.claude/settings.local.json
